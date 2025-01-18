@@ -53,22 +53,22 @@ Use the client interface to:
 ## Screenshots
 
 ### GUI Overview & Network/Server Scanner
-![Main GUI](screenshots/Screenshot 2025-01-18 004623.png)
+![Main GUI](screenshots/004623.png)
 
 ### Process & Services Manager
-![Process Manager](screenshots/Screenshot 2025-01-18 004647.png)
+![Process Manager](screenshots/004647.png)
 
 ### CMD/Shell
-![Process Manager](screenshots/Screenshot 2025-01-18 004828.png)
+![Process Manager](screenshots/004828.png)
 
 ### File Browser/Downloader
-![File Browser](screenshots/Screenshot 2025-01-18 005003.png)
+![File Browser](screenshots/005003.png)
 
 ### Server Logs Viewer
-![Server Logs](screenshots/Screenshot 2025-01-18 004606.png)
+![Server Logs](screenshots/004606.png)
 
 ### Net-Stop Scheduler
-![Internet Stop Scheduler](screenshots/Screenshot 2025-01-18 004759.png)
+![Internet Stop Scheduler](screenshots/004759.png)
 
 
 ## How It Works
