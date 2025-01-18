@@ -62,9 +62,7 @@ class Config(BaseModel):
         except ValueError:
             return False
 
-    def update_server(
-        self, ip: str = None, server: Server = None, **updates
-    ) -> bool:
+    def update_server(self, ip: str = None, server: Server = None, **updates) -> bool:
         """
         Updates a server in the last_servers list by IP or the server object.
 
