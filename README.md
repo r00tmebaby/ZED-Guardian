@@ -17,7 +17,7 @@ ZED Guardian is a parental control POC application designed to easily manage and
 - **Screenshot Manager**: Capture screenshots of specific windows or desktops.
 - **Scheduling**: Set recurring or one-time schedules for blocking/unblocking internet.
 - **Multi-PC Monitoring**: Connect to multiple clients and control them remotely.
-- **Network Scanning**: Scan the local network to identify online devices.
+- **Network Scanning**: Scan the network to identify online devices.
 
 
 ## Installation
