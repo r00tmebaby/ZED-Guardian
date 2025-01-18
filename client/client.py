@@ -123,6 +123,7 @@ def generate_token():
 
 
 def add_file_icons(files: list) -> list:
+    """Add icons to file names based on their type."""
     return [
         f"📁 {f['name']}" if f["type"] == "directory" else f"📄 {f['name']}"
         for f in files
@@ -194,7 +195,7 @@ def send_request(
         return {"success": False, "message": str(e)}
 
 
-def list_files(directory: str):
+def list_files(directory: str) -> list:
     """
     Request the server to list files in the specified directory,
     sorted by type (folders first) and then by name.
@@ -211,9 +212,7 @@ def list_files(directory: str):
         return [
             {
                 "name": (
-                    f"📁 {f['name']}"
-                    if f["type"] == "directory"
-                    else f"📄 {f['name']}"
+                    f"📁 {f['name']}" if f["type"] == "directory" else f"📄 {f['name']}"
                 ),
                 "type": f["type"],
             }
@@ -224,7 +223,7 @@ def list_files(directory: str):
         return []
 
 
-def download_file(file_path):
+def download_file(file_path) -> None:
     """Request the server to download the specified file."""
     response = send_request("download_file", {"file_path": file_path})
     if response["success"]:
@@ -237,7 +236,7 @@ def download_file(file_path):
         sg.popup_error(response["message"])
 
 
-def append_to_console(window, text):
+def append_to_console(window, text: str) -> None:
     """
     Appends text to the console output without overwriting the existing content.
     """
@@ -247,7 +246,7 @@ def append_to_console(window, text):
     window["console_output"].set_vscroll_position(1.0)  # Scroll to the bottom
 
 
-def execute_command_in_thread(window, command):
+def execute_command_in_thread(window, command: str) -> None:
     """
     Executes a command in a separate thread to keep the GUI responsive.
     """
@@ -268,7 +267,9 @@ def execute_command_in_thread(window, command):
     threading.Thread(target=worker, daemon=True).start()
 
 
-def monitor_command_log(window, log_file="command_output.log", interval=1):
+def monitor_command_log(
+    window, log_file: str = "command_output.log", interval: int = 1
+) -> None:
     """
     Continuously reads the command log file and updates the GUI.
     """
@@ -287,7 +288,7 @@ def monitor_command_log(window, log_file="command_output.log", interval=1):
         time.sleep(interval)
 
 
-def send_command_to_server(command):
+def send_command_to_server(command: str) -> dict:
     """
     Sends a command to the server for execution and returns the response.
     """
@@ -296,7 +297,7 @@ def send_command_to_server(command):
 
 
 # Display messages
-def message(result: dict):
+def message(result: dict) -> None:
     """
     Displays a message dialog based on the result.
 
@@ -377,9 +378,7 @@ def client_gui():
         elif event == "Stop Selected Service" and values["service_table"]:
             selected_row = values["service_table"][0]
             service_name = current_services[selected_row][0]
-            result = send_request(
-                "stop_service", {"service_name": service_name}
-            )
+            result = send_request("stop_service", {"service_name": service_name})
             message(result)
 
         if event == "Refresh Windows":
@@ -400,14 +399,10 @@ def client_gui():
                 window_title = selected_window.split(" (ID:")[0]
                 window_id = window_ids.get(window_title)
                 if window_id:
-                    result = send_request(
-                        "capture_window", {"window_id": window_id}
-                    )
+                    result = send_request("capture_window", {"window_id": window_id})
                     if result["success"]:
                         SCREENSHOT_PATH = result["data"]["file_path"]
-                        window["screenshot_preview"].update(
-                            filename=SCREENSHOT_PATH
-                        )
+                        window["screenshot_preview"].update(filename=SCREENSHOT_PATH)
                         sg.popup_ok("Screenshot taken successfully.")
                     else:
                         message(result)
@@ -468,12 +463,12 @@ def client_gui():
                 continue
 
             try:
-                start_time_24hr = datetime.strptime(
-                    start_time, "%I:%M %p"
-                ).strftime("%H:%M")
-                end_time_24hr = datetime.strptime(
-                    end_time, "%I:%M %p"
-                ).strftime("%H:%M")
+                start_time_24hr = datetime.strptime(start_time, "%I:%M %p").strftime(
+                    "%H:%M"
+                )
+                end_time_24hr = datetime.strptime(end_time, "%I:%M %p").strftime(
+                    "%H:%M"
+                )
 
                 result = send_request(
                     "add_schedule",
@@ -509,10 +504,7 @@ def client_gui():
                 if result["success"]:
                     current_schedule = result["data"]
                     window["schedule_table"].update(
-                        [
-                            [entry["start"], entry["end"]]
-                            for entry in current_schedule
-                        ]
+                        [[entry["start"], entry["end"]] for entry in current_schedule]
                     )
                 message(result)
             else:
@@ -585,9 +577,7 @@ def client_gui():
             current_directory = values["current_dir"]
 
             # Extract the clean name by removing the icon
-            selected_item_cleaned = (
-                selected_item.lstrip("📁 ").lstrip("📄 ").strip()
-            )
+            selected_item_cleaned = selected_item.lstrip("📁 ").lstrip("📄 ").strip()
 
             # Retrieve file data from the list_files response
             files = list_files(current_directory)
@@ -686,9 +676,7 @@ def client_gui():
                     location = response["data"]["location"]
                 config.update_server(
                     ip=config.selected_server.ip,
-                    last_connected=datetime.now().strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
+                    last_connected=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     mac_address=mac_address,
                     city=location.get("city", ""),
                     country=location.get("country", ""),
@@ -711,7 +699,5 @@ def client_gui():
 
 
 if __name__ == "__main__":
-    threading.Thread(
-        target=monitor_command_log, args=(window,), daemon=True
-    ).start()
+    threading.Thread(target=monitor_command_log, args=(window,), daemon=True).start()
     client_gui()

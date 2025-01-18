@@ -62,9 +62,7 @@ class Config(BaseModel):
         except ValueError:
             return False
 
-    def update_server(
-        self, ip: str = None, server: Server = None, **updates
-    ) -> bool:
+    def update_server(self, ip: str = None, server: Server = None, **updates) -> bool:
         """
         Updates a server in the last_servers list by IP or the server object.
 
@@ -92,6 +90,7 @@ class Config(BaseModel):
 
 
 def load_config():
+    """Loads the configuration from a JSON file."""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -103,6 +102,7 @@ def load_config():
 
 
 def save_config(_config: Config = Config()) -> Config:
+    """Saves the configuration to a JSON file."""
     with open(CONFIG_FILE, "w") as f:
         f.write(json.dumps(_config.model_dump(), indent=4))
         return _config

