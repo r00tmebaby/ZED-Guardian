@@ -4,8 +4,14 @@ import PySimpleGUI as sg
 
 sg.theme("Default1")
 combo_times = [
-    f"{h:02}:{m:02} AM" for h in range(1, 13) for m in (i for i in range(0, 60, 5))
-] + [f"{h:02}:{m:02} PM" for h in range(1, 13) for m in (i for i in range(0, 60, 5))]
+    f"{h:02}:{m:02} AM"
+    for h in range(1, 13)
+    for m in (i for i in range(0, 60, 5))
+] + [
+    f"{h:02}:{m:02} PM"
+    for h in range(1, 13)
+    for m in (i for i in range(0, 60, 5))
+]
 
 process_tabs = [
     sg.Tab(
@@ -327,7 +333,9 @@ process_tabs = [
                                         sg.Col(
                                             [
                                                 [
-                                                    sg.Text("Current Directory:"),
+                                                    sg.Text(
+                                                        "Current Directory:"
+                                                    ),
                                                     sg.InputText(
                                                         "/",
                                                         key="current_dir",
@@ -441,8 +449,12 @@ main_layout = [
                     config.search_server.start_ip, key="start_ip", size=(15, 1)
                 ),
                 sg.Text("to"),
-                sg.InputText(config.search_server.end_ip, key="end_ip", size=(15, 1)),
-                sg.Button(key="Scan Network", image_filename="static/search.png"),
+                sg.InputText(
+                    config.search_server.end_ip, key="end_ip", size=(15, 1)
+                ),
+                sg.Button(
+                    key="Scan Network", image_filename="static/search.png"
+                ),
                 sg.Button(
                     key="Stop Scanning",
                     image_filename="static/stop.png",
@@ -457,7 +469,10 @@ main_layout = [
             [
                 sg.Table(
                     values=(
-                        [server.to_table_row() for server in config.last_servers]
+                        [
+                            server.to_table_row()
+                            for server in config.last_servers
+                        ]
                         if config.last_servers
                         else [["" for _ in range(9)]]
                     ),

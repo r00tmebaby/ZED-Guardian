@@ -1,3 +1,8 @@
+"""
+This module contains the client-side code for ZED Guardian,
+including GUI, server communication, and network operations.
+"""
+
 import shutil
 import socket
 import threading
@@ -7,7 +12,16 @@ from queue import Queue
 from typing import Any
 
 import jwt
-from layout import *
+from layout import (
+    SHARED_SECRET,
+    Server,
+    config,
+    json,
+    os,
+    save_config,
+    sg,
+    window,
+)
 
 
 class NetworkScanner:
@@ -69,7 +83,12 @@ class NetworkScanner:
                         "status_bar", f"Checking server with {ip}: online"
                     )
                     server.status = "Online"
-            except Exception:
+            except (
+                SystemError,
+                ConnectionRefusedError,
+                TimeoutError,
+                OSError,
+            ):
                 self.window.write_event_value(
                     "status_bar", f"Checking server with {ip}: offline"
                 )
@@ -187,7 +206,7 @@ def send_request(
                     {"success": True, "message": "Successfully sent request"},
                 )
             return json.loads(data.decode("utf-8"))
-    except Exception as e:
+    except (ConnectionError, TimeoutError) as e:
         if sg_window is not None:
             sg_window.write_event_value(
                 "send_request", {"success": False, "message": str(e)}
@@ -212,7 +231,9 @@ def list_files(directory: str) -> list:
         return [
             {
                 "name": (
-                    f"📁 {f['name']}" if f["type"] == "directory" else f"📄 {f['name']}"
+                    f"📁 {f['name']}"
+                    if f["type"] == "directory"
+                    else f"📄 {f['name']}"
                 ),
                 "type": f["type"],
             }
@@ -378,7 +399,9 @@ def client_gui():
         elif event == "Stop Selected Service" and values["service_table"]:
             selected_row = values["service_table"][0]
             service_name = current_services[selected_row][0]
-            result = send_request("stop_service", {"service_name": service_name})
+            result = send_request(
+                "stop_service", {"service_name": service_name}
+            )
             message(result)
 
         if event == "Refresh Windows":
@@ -399,10 +422,14 @@ def client_gui():
                 window_title = selected_window.split(" (ID:")[0]
                 window_id = window_ids.get(window_title)
                 if window_id:
-                    result = send_request("capture_window", {"window_id": window_id})
+                    result = send_request(
+                        "capture_window", {"window_id": window_id}
+                    )
                     if result["success"]:
                         SCREENSHOT_PATH = result["data"]["file_path"]
-                        window["screenshot_preview"].update(filename=SCREENSHOT_PATH)
+                        window["screenshot_preview"].update(
+                            filename=SCREENSHOT_PATH
+                        )
                         sg.popup_ok("Screenshot taken successfully.")
                     else:
                         message(result)
@@ -419,7 +446,7 @@ def client_gui():
                 try:
                     shutil.copy(SCREENSHOT_PATH, save_path)
                     sg.popup_ok("Screenshot saved successfully.")
-                except Exception as e:
+                except (SystemError, FileNotFoundError) as e:
                     sg.popup_error(f"Error saving screenshot: {e}")
 
         elif event == "Start Keylogger":
@@ -463,12 +490,12 @@ def client_gui():
                 continue
 
             try:
-                start_time_24hr = datetime.strptime(start_time, "%I:%M %p").strftime(
-                    "%H:%M"
-                )
-                end_time_24hr = datetime.strptime(end_time, "%I:%M %p").strftime(
-                    "%H:%M"
-                )
+                start_time_24hr = datetime.strptime(
+                    start_time, "%I:%M %p"
+                ).strftime("%H:%M")
+                end_time_24hr = datetime.strptime(
+                    end_time, "%I:%M %p"
+                ).strftime("%H:%M")
 
                 result = send_request(
                     "add_schedule",
@@ -504,7 +531,10 @@ def client_gui():
                 if result["success"]:
                     current_schedule = result["data"]
                     window["schedule_table"].update(
-                        [[entry["start"], entry["end"]] for entry in current_schedule]
+                        [
+                            [entry["start"], entry["end"]]
+                            for entry in current_schedule
+                        ]
                     )
                 message(result)
             else:
@@ -577,7 +607,9 @@ def client_gui():
             current_directory = values["current_dir"]
 
             # Extract the clean name by removing the icon
-            selected_item_cleaned = selected_item.lstrip("📁 ").lstrip("📄 ").strip()
+            selected_item_cleaned = (
+                selected_item.lstrip("📁 ").lstrip("📄 ").strip()
+            )
 
             # Retrieve file data from the list_files response
             files = list_files(current_directory)
@@ -676,7 +708,9 @@ def client_gui():
                     location = response["data"]["location"]
                 config.update_server(
                     ip=config.selected_server.ip,
-                    last_connected=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    last_connected=datetime.now().strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
                     mac_address=mac_address,
                     city=location.get("city", ""),
                     country=location.get("country", ""),
@@ -699,5 +733,7 @@ def client_gui():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=monitor_command_log, args=(window,), daemon=True).start()
+    threading.Thread(
+        target=monitor_command_log, args=(window,), daemon=True
+    ).start()
     client_gui()
